@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: dev-backend
+    environment:
+      - NODE_ENV=development
+      - PORT=8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    # Install & run dev server (needs nodemon in devDependencies)
+    command: sh -c "npm install && npm run dev"
+
+  frontend:
+    image: node:20-alpine
+    container_name: dev-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    # Choose ONE of these two port lines based on your tool:
+    ports:
+      - "3000:3000"   # CRA
+      # - "5173:5173" # Vite (uncomment if Vite)
+    environment:
+      - CHOKIDAR_USEPOLLING=true        # helps file watching on Windows/WSL
+      - WATCHPACK_POLLING=true
+      - HOST=0.0.0.0                    # CRA
+      - VITE_DEV_SERVER_HOST=0.0.0.0    # Vite
+      - VITE_API_URL=http://localhost:8080
+      - REACT_APP_API_BASE_URL=http://localhost:8080
+    command: sh -c "npm install && (npm run dev || npm start)"
+    depends_on:
+      - backend

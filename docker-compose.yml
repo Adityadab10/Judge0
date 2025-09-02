@@ -1,0 +1,31 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: prod-backend
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - MONGO_URI=mongodb://mongo:27017/swapsave
+    expose:
+      - "8080"
+    networks:
+      - app-network
+
+  frontend-vite:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.vite
+    container_name: prod-frontend
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
