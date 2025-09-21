@@ -1,0 +1,16 @@
+# Use Node for development
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Mount local code at runtime (done via docker-compose volumes)
+
+# Expose Vite dev server
+EXPOSE 5173
+
+# Run Vite dev server
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
