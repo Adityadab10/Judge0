@@ -150,25 +150,27 @@ const CodeEditorRunner = () => {
     }
   };
 
-  const defaultCode = `' FreeBasic Hello World Program
-Print "Hello, World from FreeBasic!"
-Print "This is a simple FreeBasic program"
-Print "Current version: FBC 1.07.1"
-
-' Simple calculations
-Dim a As Integer = 10
-Dim b As Integer = 20
-Dim sum As Integer = a + b
-
-Print "Addition: " & a & " + " & b & " = " & sum
-
-' Loop example
-Print "Counting from 1 to 5:"
-For i As Integer = 1 To 5
-    Print "Count: " & i
-Next i
-
-Print "Program completed successfully!"`;
+  const defaultCode = `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+        System.out.println("This is a Java program");
+        
+        // Simple calculations
+        int a = 10;
+        int b = 20;
+        int sum = a + b;
+        
+        System.out.println("Addition: " + a + " + " + b + " = " + sum);
+        
+        // Loop example
+        System.out.println("Counting from 1 to 5:");
+        for (int i = 1; i <= 5; i++) {
+            System.out.println("Count: " + i);
+        }
+        
+        System.out.println("Program completed successfully!");
+    }
+}`;
 
   const [code, setCode] = useState(defaultCode);
   const [languages, setLanguages] = useState([]);
@@ -189,14 +191,14 @@ Print "Program completed successfully!"`;
       console.log('Languages response:', response.data);
       setLanguages(response.data);
       
-      // Set default language to FreeBasic (FBC 1.07.1) if available
-      const fbLang = response.data.find(lang => 
-        lang.name.toLowerCase().includes('basic') && 
-        lang.name.toLowerCase().includes('fbc')
+      // Set default language to Java if available
+      const javaLang = response.data.find(lang => 
+        lang.name.toLowerCase().includes('java') && 
+        !lang.name.toLowerCase().includes('javascript')
       );
-      if (fbLang) {
-        console.log('Setting default language to:', fbLang.name);
-        setSelectedLanguage(fbLang.id);
+      if (javaLang) {
+        console.log('Setting default language to:', javaLang.name);
+        setSelectedLanguage(javaLang.id);
       }
     } catch (error) {
       console.error('Error fetching languages:', error);
@@ -349,7 +351,7 @@ Print "Program completed successfully!"`;
           >
             <Editor
               height="100%"
-              defaultLanguage="vb"
+              defaultLanguage="java"
               value={code}
               onChange={setCode}
               theme="vs-dark"
