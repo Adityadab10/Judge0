@@ -34,13 +34,41 @@ class CodeController {
     try {
       const { source_code, language_id, stdin } = req.body;
       
+      console.log('Received run request:', {
+        source_code_length: source_code?.length || 0,
+        language_id,
+        has_stdin: !!stdin
+      });
+      
       if (!source_code || !language_id) {
+        console.log('Missing required fields:', { source_code: !!source_code, language_id: !!language_id });
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
+      console.log('Calling Judge0 service...');
       const result = await judge0Service.createSyncSubmission(source_code, language_id, stdin);
+      
+      console.log('Judge0 response received:', {
+        status: result.status?.description,
+        has_stdout: !!result.stdout,
+        has_stderr: !!result.stderr,
+        has_compile_output: !!result.compile_output
+      });
+      
+      // Log the actual decoded content for debugging
+      if (result.compile_output) {
+        console.log('Decoded compile_output:', JSON.stringify(result.compile_output));
+      }
+      if (result.stdout) {
+        console.log('Decoded stdout:', JSON.stringify(result.stdout));
+      }
+      if (result.stderr) {
+        console.log('Decoded stderr:', JSON.stringify(result.stderr));
+      }
+      
       res.json(result);
     } catch (error) {
+      console.error('Error in runSync:', error);
       res.status(500).json({ error: error.message });
     }
   }

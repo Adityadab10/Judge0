@@ -3,12 +3,172 @@ import Editor from '@monaco-editor/react';
 import axios from 'axios';
 
 const CodeEditorRunner = () => {
-  const defaultCode = `#include <stdio.h>
+  // Internal CSS styles
+  const styles = {
+    container: {
+      display: 'flex',
+      flexDirection: 'column',
+      width: '100%',
+      height: '100vh',
+      minHeight: '100vh',
+      padding: '16px',
+      backgroundColor: '#0f172a',
+      color: '#ffffff',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '16px',
+      padding: '16px',
+      backgroundColor: '#1e293b',
+      borderRadius: '12px',
+      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      border: '1px solid #334155'
+    },
+    select: {
+      padding: '12px 16px',
+      fontSize: '16px',
+      backgroundColor: '#374151',
+      color: '#ffffff',
+      border: '2px solid #4b5563',
+      borderRadius: '8px',
+      minWidth: '220px',
+      outline: 'none',
+      transition: 'all 0.2s ease-in-out',
+      cursor: 'pointer'
+    },
+    selectFocus: {
+      borderColor: '#3b82f6',
+      boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)'
+    },
+    button: {
+      padding: '12px 24px',
+      fontSize: '16px',
+      backgroundColor: '#3b82f6',
+      color: '#ffffff',
+      border: 'none',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontWeight: '600',
+      transition: 'all 0.2s ease-in-out',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.025em'
+    },
+    buttonHover: {
+      backgroundColor: '#2563eb',
+      transform: 'translateY(-1px)',
+      boxShadow: '0 8px 12px -2px rgba(0, 0, 0, 0.2)'
+    },
+    buttonDisabled: {
+      backgroundColor: '#4b5563',
+      cursor: 'not-allowed',
+      opacity: '0.7',
+      transform: 'none'
+    },
+    mainContent: {
+      display: 'flex',
+      gap: '16px',
+      flex: '1',
+      minHeight: '0'
+    },
+    editorSection: {
+      flex: '1',
+      display: 'flex',
+      flexDirection: 'column',
+      minWidth: '0'
+    },
+    sectionTitle: {
+      marginBottom: '8px',
+      color: '#f1f5f9',
+      fontSize: '18px',
+      fontWeight: '600',
+      letterSpacing: '0.025em'
+    },
+    editorContainer: {
+      flex: '1',
+      border: '2px solid #475569',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      transition: 'border-color 0.2s ease-in-out'
+    },
+    editorContainerFocus: {
+      borderColor: '#3b82f6'
+    },
+    inputOutputPanel: {
+      width: '400px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '16px'
+    },
+    inputOutputSection: {
+      flex: '1',
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '0'
+    },
+    textarea: {
+      flex: '1',
+      minHeight: '140px',
+      padding: '12px',
+      backgroundColor: '#1e293b',
+      color: '#ffffff',
+      border: '2px solid #475569',
+      borderRadius: '8px',
+      fontFamily: '"Fira Code", "Consolas", "Monaco", monospace',
+      fontSize: '14px',
+      resize: 'vertical',
+      outline: 'none',
+      transition: 'all 0.2s ease-in-out'
+    },
+    textareaFocus: {
+      borderColor: '#3b82f6',
+      boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)'
+    },
+    output: {
+      flex: '1',
+      minHeight: '180px',
+      padding: '12px',
+      backgroundColor: '#020617',
+      color: '#e2e8f0',
+      border: '2px solid #475569',
+      borderRadius: '8px',
+      fontFamily: '"Fira Code", "Consolas", "Monaco", monospace',
+      fontSize: '14px',
+      whiteSpace: 'pre-wrap',
+      overflowY: 'auto',
+      lineHeight: '1.5',
+      scrollbarWidth: 'thin',
+      scrollbarColor: '#475569 #1e293b'
+    },
+    placeholder: {
+      color: '#64748b',
+      fontStyle: 'italic'
+    }
+  };
 
-int main() {
-    printf("Hello, World!\\n");
-    return 0;
-}`;
+  const defaultCode = `' FreeBasic Hello World Program
+Print "Hello, World from FreeBasic!"
+Print "This is a simple FreeBasic program"
+Print "Current version: FBC 1.07.1"
+
+' Simple calculations
+Dim a As Integer = 10
+Dim b As Integer = 20
+Dim sum As Integer = a + b
+
+Print "Addition: " & a & " + " & b & " = " & sum
+
+' Loop example
+Print "Counting from 1 to 5:"
+For i As Integer = 1 To 5
+    Print "Count: " & i
+Next i
+
+Print "Program completed successfully!"`;
 
   const [code, setCode] = useState(defaultCode);
   const [languages, setLanguages] = useState([]);
@@ -29,15 +189,14 @@ int main() {
       console.log('Languages response:', response.data);
       setLanguages(response.data);
       
-      // Set default language to C if available
-      const cLang = response.data.find(lang => 
-        lang.name.toLowerCase().includes('c') && 
-        !lang.name.toLowerCase().includes('++') &&
-        !lang.name.toLowerCase().includes('#')
+      // Set default language to FreeBasic (FBC 1.07.1) if available
+      const fbLang = response.data.find(lang => 
+        lang.name.toLowerCase().includes('basic') && 
+        lang.name.toLowerCase().includes('fbc')
       );
-      if (cLang) {
-        console.log('Setting default language to:', cLang.name);
-        setSelectedLanguage(cLang.id);
+      if (fbLang) {
+        console.log('Setting default language to:', fbLang.name);
+        setSelectedLanguage(fbLang.id);
       }
     } catch (error) {
       console.error('Error fetching languages:', error);
@@ -61,6 +220,12 @@ int main() {
       setIsLoading(true);
       setOutput('Running code...');
       
+      console.log('Sending code to Judge0:', {
+        source_code: code,
+        language_id: selectedLanguage,
+        stdin: input
+      });
+      
       const response = await axios.post('/api/run', {
         source_code: code,
         language_id: selectedLanguage,
@@ -69,31 +234,66 @@ int main() {
       
       const result = response.data;
       
-      // Format output
+      // Log the complete response from Judge0
+      console.log('Judge0 Response:', result);
+      console.log('=== EXECUTION DETAILS ===');
+      console.log('Status:', result.status);
+      console.log('Execution Time:', result.time, 'seconds');
+      console.log('Memory Used:', result.memory, 'KB');
+      console.log('=== OUTPUT ===');
+      console.log('STDOUT:', result.stdout);
+      console.log('STDERR:', result.stderr);
+      console.log('COMPILE_OUTPUT:', result.compile_output);
+      console.log('MESSAGE:', result.message);
+      console.log('========================');
+      
+      // Format output for display
       let outputText = '';
       
+      // Show compilation output if any
       if (result.compile_output) {
-        outputText += `Compilation Error:\n${result.compile_output}\n`;
+        outputText += `Compilation Output:\n${result.compile_output}\n\n`;
       }
       
+      // Show standard output (main program output)
       if (result.stdout) {
-        outputText += `Output:\n${result.stdout}\n`;
+        outputText += `Program Output:\n${result.stdout}\n`;
       }
       
+      // Show error output if any
       if (result.stderr) {
-        outputText += `Error:\n${result.stderr}\n`;
+        outputText += `Error Output:\n${result.stderr}\n`;
       }
       
+      // Show any additional messages
+      if (result.message) {
+        outputText += `System Message:\n${result.message}\n`;
+      }
+      
+      // Show execution details
       if (result.status) {
-        outputText += `\nStatus: ${result.status.description}`;
-        outputText += `\nTime: ${result.time}s`;
-        outputText += `\nMemory: ${result.memory}KB`;
+        outputText += `\n--- Execution Details ---\n`;
+        outputText += `Status: ${result.status.description}\n`;
+        outputText += `Exit Code: ${result.exit_code || 'N/A'}\n`;
+        outputText += `Execution Time: ${result.time || 'N/A'}s\n`;
+        outputText += `Memory Used: ${result.memory || 'N/A'}KB\n`;
       }
       
-      setOutput(outputText || 'No output generated.');
+      // If there's a token, show it for debugging
+      if (result.token) {
+        outputText += `\nSubmission Token: ${result.token}`;
+      }
+      
+      setOutput(outputText || 'Code executed but no output was generated.');
       
     } catch (error) {
       console.error('Error running code:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       setOutput(`Error: ${error.response?.data?.error || error.message || 'Failed to run code'}`);
     } finally {
       setIsLoading(false);
@@ -101,12 +301,15 @@ int main() {
   };
 
   return (
-    <div className="flex flex-col h-screen p-4 bg-gray-900 text-white box-border">
-      <div className="flex justify-between items-center mb-4 p-4 bg-gray-800 rounded-lg">
+    <div style={styles.container}>
+      {/* Header Section */}
+      <div style={styles.header}>
         <select 
           value={selectedLanguage || ''} 
           onChange={(e) => setSelectedLanguage(e.target.value)}
-          className="px-2 py-2 text-base bg-gray-700 text-white border border-gray-600 rounded min-w-[200px] focus:outline-none focus:border-blue-500"
+          style={styles.select}
+          onFocus={(e) => Object.assign(e.target.style, styles.selectFocus)}
+          onBlur={(e) => Object.assign(e.target.style, styles.select)}
         >
           <option value="">Select Language</option>
           {languages.map(lang => (
@@ -117,47 +320,72 @@ int main() {
         <button 
           onClick={runCode} 
           disabled={isLoading || !selectedLanguage}
-          className="px-6 py-2 text-base bg-blue-600 text-white border-none rounded cursor-pointer font-bold transition-colors duration-200 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+          style={{
+            ...styles.button,
+            ...(isLoading || !selectedLanguage ? styles.buttonDisabled : {})
+          }}
+          onMouseEnter={(e) => {
+            if (!isLoading && selectedLanguage) {
+              Object.assign(e.target.style, { ...styles.button, ...styles.buttonHover });
+            }
+          }}
+          onMouseLeave={(e) => {
+            Object.assign(e.target.style, styles.button);
+          }}
         >
           {isLoading ? 'Running...' : 'Run Code'}
         </button>
       </div>
 
-      <div className="flex gap-4 flex-1 min-h-0">
-        <div className="flex-1 flex flex-col min-w-0">
-          <h3 className="m-0 mb-2 text-white text-lg">Code Editor</h3>
-          <Editor
-            height="400px"
-            defaultLanguage="c"
-            value={code}
-            onChange={setCode}
-            theme="vs-dark"
-            options={{
-              fontSize: 14,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-            }}
-          />
+      {/* Main Content Area */}
+      <div style={styles.mainContent}>
+        {/* Code Editor Section */}
+        <div style={styles.editorSection}>
+          <h3 style={styles.sectionTitle}>Code Editor</h3>
+          <div 
+            style={styles.editorContainer}
+            onFocus={(e) => Object.assign(e.target.style, { ...styles.editorContainer, ...styles.editorContainerFocus })}
+            onBlur={(e) => Object.assign(e.target.style, styles.editorContainer)}
+          >
+            <Editor
+              height="100%"
+              defaultLanguage="vb"
+              value={code}
+              onChange={setCode}
+              theme="vs-dark"
+              options={{
+                fontSize: 14,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                automaticLayout: true,
+              }}
+            />
+          </div>
         </div>
 
-        <div className="w-96 flex flex-col gap-4">
-          <div className="flex-1 flex flex-col min-h-0">
-            <h3 className="m-0 mb-2 text-white text-lg">Input</h3>
+        {/* Input/Output Panel */}
+        <div style={styles.inputOutputPanel}>
+          {/* Input Section */}
+          <div style={styles.inputOutputSection}>
+            <h3 style={styles.sectionTitle}>Input</h3>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Enter input here (optional)..."
               disabled={isLoading}
               rows="6"
-              className="flex-1 min-h-[120px] p-2 bg-gray-800 text-white border border-gray-600 rounded font-mono text-sm resize-y box-border focus:outline-none focus:border-blue-500"
+              style={styles.textarea}
+              onFocus={(e) => Object.assign(e.target.style, { ...styles.textarea, ...styles.textareaFocus })}
+              onBlur={(e) => Object.assign(e.target.style, styles.textarea)}
             />
           </div>
 
-          <div className="flex-1 flex flex-col min-h-0">
-            <h3 className="m-0 mb-2 text-white text-lg">Output</h3>
-            <pre className="flex-1 min-h-[150px] p-2 bg-gray-950 text-white border border-gray-600 rounded font-mono text-sm whitespace-pre-wrap overflow-y-auto m-0 box-border">
-              {output || 'Click "Run Code" to see output here...'}
+          {/* Output Section */}
+          <div style={styles.inputOutputSection}>
+            <h3 style={styles.sectionTitle}>Output</h3>
+            <pre style={styles.output}>
+              {output || <span style={styles.placeholder}>Click "Run Code" to see output here...</span>}
             </pre>
           </div>
         </div>

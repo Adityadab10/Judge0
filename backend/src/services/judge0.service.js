@@ -44,17 +44,57 @@ class Judge0Service {
   // Create a submission with wait=true (synchronous)
   async createSyncSubmission(sourceCode, languageId, stdin) {
     try {
+      console.log('Creating submission with source code length:', sourceCode.length);
+      console.log('Language ID:', languageId);
+      
+      // First, create the submission
       const response = await judge0Api.post('/submissions', {
         source_code: toBase64(sourceCode),
         language_id: languageId,
         stdin: stdin ? toBase64(stdin) : null,
-        wait: true
+        wait: false  // Set to false and poll manually for better control
       });
       
-      return decodeSubmissionResponse(response.data);
+      const token = response.data.token;
+      console.log('Submission created with token:', token);
+      
+      // Poll for the result with timeout
+      const maxAttempts = 30; // 30 seconds max wait time
+      let attempts = 0;
+      
+      while (attempts < maxAttempts) {
+        console.log(`Polling attempt ${attempts + 1}/${maxAttempts} for token: ${token}`);
+        
+        try {
+          const resultResponse = await judge0Api.get(`/submissions/${token}`);
+          const submission = resultResponse.data;
+          
+          console.log('Submission status:', submission.status);
+          
+          // Check if submission is finished (status id 3 = Accepted, 4 = Wrong Answer, 5 = Time Limit Exceeded, 6 = Compilation Error, etc.)
+          if (submission.status && submission.status.id > 2) {
+            console.log('Submission completed with status:', submission.status.description);
+            return decodeSubmissionResponse(submission);
+          }
+          
+          // Wait 1 second before next poll
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+          
+        } catch (pollError) {
+          console.error('Error polling submission:', pollError.message);
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
+      // If we reach here, submission timed out
+      throw new Error('Submission timed out after 30 seconds');
+      
     } catch (error) {
       console.error('Error creating sync submission:', error);
-      throw new Error('Failed to create submission');
+      console.error('Error details:', error.response?.data);
+      throw new Error('Failed to create submission: ' + error.message);
     }
   }
 

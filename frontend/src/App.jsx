@@ -3,7 +3,7 @@ import CodeEditorRunner from './components/CodeEditorRunner'
 
 function App() {
   return (
-    <div className="app-container">
+    <div className="w-full h-screen bg-gray-900">
       <CodeEditorRunner />
     </div>
   )

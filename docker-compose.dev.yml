@@ -51,16 +51,27 @@ services:
     environment:
       - VIRTUAL_HOST=api.judge0.local
       - VIRTUAL_PORT=2358
-    volumes:
-      - ./judge0.conf:/judge0.conf:ro
+      - REDIS_HOST=judge0-redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://judge0-redis:6379
+      - POSTGRES_HOST=judge0-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=judge0
+      - POSTGRES_USER=judge0
+      - POSTGRES_PASSWORD=judge0
+      - JUDGE0_WORKERS=2
+      - JUDGE0_MAX_QUEUE_SIZE=100
     ports:
       - "2358:2358"
     privileged: true
     depends_on:
-      - judge0-db
-      - judge0-redis
+      judge0-db:
+        condition: service_healthy
+      judge0-redis:
+        condition: service_healthy
     networks:
       - app-network
+    restart: unless-stopped
 
   judge0-worker:
     image: judge0/judge0:1.13.0
@@ -69,14 +80,25 @@ services:
     environment:
       - VIRTUAL_HOST=api.judge0.local
       - VIRTUAL_PORT=2358
-    volumes:
-      - ./judge0.conf:/judge0.conf:ro
+      - REDIS_HOST=judge0-redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://judge0-redis:6379
+      - POSTGRES_HOST=judge0-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=judge0
+      - POSTGRES_USER=judge0
+      - POSTGRES_PASSWORD=judge0
+      - JUDGE0_WORKERS=2
+      - JUDGE0_MAX_QUEUE_SIZE=100
     privileged: true
     depends_on:
-      - judge0-db
-      - judge0-redis
+      judge0-db:
+        condition: service_healthy
+      judge0-redis:
+        condition: service_healthy
     networks:
       - app-network
+    restart: unless-stopped
 
   judge0-db:
     image: postgres:13.0
@@ -91,20 +113,29 @@ services:
       - postgres-data:/var/lib/postgresql/data/
     networks:
       - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U judge0 -d judge0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   judge0-redis:
     image: redis:6.0
     container_name: judge0-redis
-    command: [
-      "bash", "-c",
-      'docker-entrypoint.sh --appendonly yes --requirepass "judge0pass"'
-    ]
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 networks:
   app-network:
