@@ -1,166 +1,112 @@
 import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
-import './CodeEditorRunner.css';
 
 const CodeEditorRunner = () => {
-  const defaultCode = `// Sample JavaScript code to test
-function findSum(numbers) {
-    return numbers.reduce((sum, num) => sum + num, 0);
-}
+  const defaultCode = `#include <stdio.h>
 
-// Example usage:
-const numbers = [1, 2, 3, 4, 5];
-const sum = findSum(numbers);
-console.log(\`Sum of numbers: \${sum}\`);`;
+int main() {
+    printf("Hello, World!\\n");
+    return 0;
+}`;
 
   const [code, setCode] = useState(defaultCode);
   const [languages, setLanguages] = useState([]);
   const [selectedLanguage, setSelectedLanguage] = useState(null);
-  const [stdin, setStdin] = useState('1 2 3 4 5');
-  const [output, setOutput] = useState(null);
+  const [input, setInput] = useState('');
+  const [output, setOutput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [pollInterval, setPollInterval] = useState(null);
-  const [testcases, setTestcases] = useState([{ stdin: '', expected: '' }]);
 
   // Fetch available languages on mount
   useEffect(() => {
     fetchLanguages();
   }, []);
 
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollInterval) clearInterval(pollInterval);
-    };
-  }, [pollInterval]);
-
   const fetchLanguages = async () => {
     try {
+      console.log('Fetching languages from /api/languages...');
       const response = await axios.get('/api/languages');
+      console.log('Languages response:', response.data);
       setLanguages(response.data);
       
-      // Set default language to JavaScript/Node.js if available
-      const jsLang = response.data.find(lang => 
-        lang.name.toLowerCase().includes('javascript') || 
-        lang.name.toLowerCase().includes('node')
+      // Set default language to C if available
+      const cLang = response.data.find(lang => 
+        lang.name.toLowerCase().includes('c') && 
+        !lang.name.toLowerCase().includes('++') &&
+        !lang.name.toLowerCase().includes('#')
       );
-      if (jsLang) setSelectedLanguage(jsLang.id);
+      if (cLang) {
+        console.log('Setting default language to:', cLang.name);
+        setSelectedLanguage(cLang.id);
+      }
     } catch (error) {
       console.error('Error fetching languages:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      setOutput(`Error: Could not fetch languages. ${error.response?.data?.error || error.message || 'Make sure the backend server is running.'}`);
     }
   };
 
-  const runCodeSync = async () => {
+  const runCode = async () => {
+    if (!selectedLanguage) {
+      setOutput('Error: Please select a language first.');
+      return;
+    }
+
     try {
       setIsLoading(true);
-      setOutput(null);
+      setOutput('Running code...');
       
-      const response = await axios.post('/api/run-sync', {
+      const response = await axios.post('/api/run', {
         source_code: code,
         language_id: selectedLanguage,
-        stdin
+        stdin: input
       });
       
-      setOutput(response.data);
+      const result = response.data;
+      
+      // Format output
+      let outputText = '';
+      
+      if (result.compile_output) {
+        outputText += `Compilation Error:\n${result.compile_output}\n`;
+      }
+      
+      if (result.stdout) {
+        outputText += `Output:\n${result.stdout}\n`;
+      }
+      
+      if (result.stderr) {
+        outputText += `Error:\n${result.stderr}\n`;
+      }
+      
+      if (result.status) {
+        outputText += `\nStatus: ${result.status.description}`;
+        outputText += `\nTime: ${result.time}s`;
+        outputText += `\nMemory: ${result.memory}KB`;
+      }
+      
+      setOutput(outputText || 'No output generated.');
+      
     } catch (error) {
       console.error('Error running code:', error);
-      setOutput({ error: error.response?.data?.error || 'Error running code' });
+      setOutput(`Error: ${error.response?.data?.error || error.message || 'Failed to run code'}`);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const runCodeAsync = async () => {
-    try {
-      setIsLoading(true);
-      setOutput(null);
-      
-      // Create submission
-      const response = await axios.post('/api/create-submission', {
-        source_code: code,
-        language_id: selectedLanguage,
-        stdin
-      });
-      
-      const token = response.data.token;
-      
-      // Start polling
-      const interval = setInterval(async () => {
-        const statusResponse = await axios.get(`/api/submissions/${token}`);
-        const submission = statusResponse.data;
-        
-        if (submission.status.id !== 1 && submission.status.id !== 2) { // Not queued or processing
-          clearInterval(interval);
-          setPollInterval(null);
-          setIsLoading(false);
-          setOutput(submission);
-        }
-      }, 1000);
-      
-      setPollInterval(interval);
-    } catch (error) {
-      console.error('Error running code:', error);
-      setOutput({ error: error.response?.data?.error || 'Error running code' });
-      setIsLoading(false);
-    }
-  };
-
-  const runTestcases = async () => {
-    try {
-      setIsLoading(true);
-      setOutput(null);
-      
-      const response = await axios.post('/api/run-testcases', {
-        source_code: code,
-        language_id: selectedLanguage,
-        testcases: testcases.map(t => t.stdin)
-      });
-      
-      // Combine results with expected outputs
-      const results = response.data.map((result, index) => ({
-        ...result,
-        expected: testcases[index].expected
-      }));
-      
-      setOutput({ testcases: results });
-    } catch (error) {
-      console.error('Error running testcases:', error);
-      setOutput({ error: error.response?.data?.error || 'Error running testcases' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const stopExecution = () => {
-    if (pollInterval) {
-      clearInterval(pollInterval);
-      setPollInterval(null);
-      setIsLoading(false);
-    }
-  };
-
-  const addTestcase = () => {
-    setTestcases([...testcases, { stdin: '', expected: '' }]);
-  };
-
-  const updateTestcase = (index, field, value) => {
-    const newTestcases = [...testcases];
-    newTestcases[index][field] = value;
-    setTestcases(newTestcases);
-  };
-
-  const removeTestcase = (index) => {
-    setTestcases(testcases.filter((_, i) => i !== index));
   };
 
   return (
-    <div className="code-editor-container">
-      <div className="editor-header">
+    <div className="flex flex-col h-screen p-4 bg-gray-900 text-white box-border">
+      <div className="flex justify-between items-center mb-4 p-4 bg-gray-800 rounded-lg">
         <select 
           value={selectedLanguage || ''} 
           onChange={(e) => setSelectedLanguage(e.target.value)}
-          className="language-select"
+          className="px-2 py-2 text-base bg-gray-700 text-white border border-gray-600 rounded min-w-[200px] focus:outline-none focus:border-blue-500"
         >
           <option value="">Select Language</option>
           {languages.map(lang => (
@@ -168,27 +114,21 @@ console.log(\`Sum of numbers: \${sum}\`);`;
           ))}
         </select>
         
-        <div className="button-group">
-          <button onClick={runCodeSync} disabled={isLoading || !selectedLanguage}>
-            Run (Sync)
-          </button>
-          <button onClick={runCodeAsync} disabled={isLoading || !selectedLanguage}>
-            Run (Async)
-          </button>
-          <button onClick={stopExecution} disabled={!isLoading}>
-            Stop
-          </button>
-          <button onClick={runTestcases} disabled={isLoading || !selectedLanguage}>
-            Run Testcases
-          </button>
-        </div>
+        <button 
+          onClick={runCode} 
+          disabled={isLoading || !selectedLanguage}
+          className="px-6 py-2 text-base bg-blue-600 text-white border-none rounded cursor-pointer font-bold transition-colors duration-200 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+        >
+          {isLoading ? 'Running...' : 'Run Code'}
+        </button>
       </div>
 
-      <div className="editor-main">
-        <div className="editor-wrapper">
+      <div className="flex gap-4 flex-1 min-h-0">
+        <div className="flex-1 flex flex-col min-w-0">
+          <h3 className="m-0 mb-2 text-white text-lg">Code Editor</h3>
           <Editor
-            height="70vh"
-            defaultLanguage="javascript"
+            height="400px"
+            defaultLanguage="c"
             value={code}
             onChange={setCode}
             theme="vs-dark"
@@ -196,89 +136,29 @@ console.log(\`Sum of numbers: \${sum}\`);`;
               fontSize: 14,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
+              wordWrap: 'on',
             }}
           />
         </div>
 
-        <div className="io-panel">
-          <div className="stdin-section">
-            <h3>Input</h3>
+        <div className="w-96 flex flex-col gap-4">
+          <div className="flex-1 flex flex-col min-h-0">
+            <h3 className="m-0 mb-2 text-white text-lg">Input</h3>
             <textarea
-              value={stdin}
-              onChange={(e) => setStdin(e.target.value)}
-              placeholder="Enter input here..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Enter input here (optional)..."
               disabled={isLoading}
+              rows="6"
+              className="flex-1 min-h-[120px] p-2 bg-gray-800 text-white border border-gray-600 rounded font-mono text-sm resize-y box-border focus:outline-none focus:border-blue-500"
             />
           </div>
 
-          <div className="testcases-section">
-            <h3>Testcases</h3>
-            <button onClick={addTestcase} className="add-testcase-btn">
-              Add Testcase
-            </button>
-            
-            {testcases.map((testcase, index) => (
-              <div key={index} className="testcase">
-                <div className="testcase-header">
-                  <span>Testcase {index + 1}</span>
-                  <button onClick={() => removeTestcase(index)}>Remove</button>
-                </div>
-                <textarea
-                  value={testcase.stdin}
-                  onChange={(e) => updateTestcase(index, 'stdin', e.target.value)}
-                  placeholder="Input"
-                  disabled={isLoading}
-                />
-                <textarea
-                  value={testcase.expected}
-                  onChange={(e) => updateTestcase(index, 'expected', e.target.value)}
-                  placeholder="Expected output"
-                  disabled={isLoading}
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="output-section">
-            <h3>Output</h3>
-            {isLoading && <div className="loading">Running code...</div>}
-            {output && (
-              <div className="output-content">
-                {output.error ? (
-                  <pre className="error">{output.error}</pre>
-                ) : output.testcases ? (
-                  <div className="testcase-results">
-                    {output.testcases.map((result, index) => (
-                      <div 
-                        key={index}
-                        className={`testcase-result ${result.passed ? 'passed' : 'failed'}`}
-                      >
-                        <h4>Testcase {index + 1}</h4>
-                        <div>Status: {result.status.description}</div>
-                        {result.stdout && <pre>Output: {result.stdout}</pre>}
-                        {result.stderr && <pre className="error">Error: {result.stderr}</pre>}
-                        {result.compile_output && (
-                          <pre className="error">Compile Error: {result.compile_output}</pre>
-                        )}
-                        <div>Time: {result.time} s</div>
-                        <div>Memory: {result.memory} KB</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <>
-                    <div>Status: {output.status.description}</div>
-                    {output.stdout && <pre>Output: {output.stdout}</pre>}
-                    {output.stderr && <pre className="error">Error: {output.stderr}</pre>}
-                    {output.compile_output && (
-                      <pre className="error">Compile Error: {output.compile_output}</pre>
-                    )}
-                    <div>Time: {output.time} s</div>
-                    <div>Memory: {output.memory} KB</div>
-                  </>
-                )}
-              </div>
-            )}
+          <div className="flex-1 flex flex-col min-h-0">
+            <h3 className="m-0 mb-2 text-white text-lg">Output</h3>
+            <pre className="flex-1 min-h-[150px] p-2 bg-gray-950 text-white border border-gray-600 rounded font-mono text-sm whitespace-pre-wrap overflow-y-auto m-0 box-border">
+              {output || 'Click "Run Code" to see output here...'}
+            </pre>
           </div>
         </div>
       </div>

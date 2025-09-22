@@ -1,6 +1,24 @@
 const judge0Service = require('../services/judge0.service');
 
 class CodeController {
+  // GET /api/health - Health check for Judge0 connectivity
+  async healthCheck(req, res) {
+    try {
+      const judge0Status = await judge0Service.healthCheck();
+      res.json({ 
+        status: 'healthy', 
+        judge0: judge0Status,
+        judge0_url: process.env.JUDGE0_URL 
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        status: 'unhealthy', 
+        error: error.message,
+        judge0_url: process.env.JUDGE0_URL 
+      });
+    }
+  }
+
   // GET /api/languages
   async getLanguages(req, res) {
     try {

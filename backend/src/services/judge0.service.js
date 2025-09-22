@@ -8,13 +8,35 @@ const judge0Api = axios.create({
 });
 
 class Judge0Service {
+  // Health check for Judge0 connectivity
+  async healthCheck() {
+    try {
+      const response = await judge0Api.get('/system_info');
+      return { 
+        status: 'connected', 
+        version: response.data?.version || 'unknown',
+        url: process.env.JUDGE0_URL 
+      };
+    } catch (error) {
+      console.error('Judge0 health check failed:', error.message);
+      throw new Error(`Judge0 not accessible at ${process.env.JUDGE0_URL}: ${error.message}`);
+    }
+  }
+
   // Fetch available languages from Judge0
   async getLanguages() {
     try {
+      console.log('Fetching languages from:', process.env.JUDGE0_URL);
       const response = await judge0Api.get('/languages');
+      console.log('Languages fetched successfully, count:', response.data.length);
       return response.data;
     } catch (error) {
-      console.error('Error fetching languages:', error);
+      console.error('Error fetching languages:', error.message);
+      console.error('Judge0 URL:', process.env.JUDGE0_URL);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
       throw new Error('Failed to fetch languages from Judge0');
     }
   }

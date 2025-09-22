@@ -6,6 +6,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8080
+      - JUDGE0_URL=http://judge0-server:2358
     ports:
       - "8080:8080"
     volumes:
@@ -13,6 +14,10 @@ services:
       - /app/node_modules
     # Install & run dev server (needs nodemon in devDependencies)
     command: sh -c "npm install && npm run dev"
+    depends_on:
+      - judge0-server
+    networks:
+      - app-network
 
   frontend:
     image: node:20-alpine
@@ -23,15 +28,88 @@ services:
       - /app/node_modules
     # Choose ONE of these two port lines based on your tool:
     ports:
-      - "3000:3000"   # CRA
-      # - "5173:5173" # Vite (uncomment if Vite)
+      # - "3000:3000"   # CRA
+      - "5173:5173" # Vite (uncomment if Vite)
     environment:
       - CHOKIDAR_USEPOLLING=true        # helps file watching on Windows/WSL
       - WATCHPACK_POLLING=true
       - HOST=0.0.0.0                    # CRA
       - VITE_DEV_SERVER_HOST=0.0.0.0    # Vite
+      - VITE_DEV_SERVER_PORT=5173       # Vite
       - VITE_API_URL=http://localhost:8080
       - REACT_APP_API_BASE_URL=http://localhost:8080
     command: sh -c "npm install && (npm run dev || npm start)"
     depends_on:
       - backend
+    networks:
+      - app-network
+
+  # Judge0 Services
+  judge0-server:
+    image: judge0/judge0:1.13.0
+    container_name: judge0-server
+    environment:
+      - VIRTUAL_HOST=api.judge0.local
+      - VIRTUAL_PORT=2358
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    ports:
+      - "2358:2358"
+    privileged: true
+    depends_on:
+      - judge0-db
+      - judge0-redis
+    networks:
+      - app-network
+
+  judge0-worker:
+    image: judge0/judge0:1.13.0
+    container_name: judge0-worker
+    command: ["./scripts/workers"]
+    environment:
+      - VIRTUAL_HOST=api.judge0.local
+      - VIRTUAL_PORT=2358
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    privileged: true
+    depends_on:
+      - judge0-db
+      - judge0-redis
+    networks:
+      - app-network
+
+  judge0-db:
+    image: postgres:13.0
+    container_name: judge0-db
+    environment:
+      - POSTGRES_USER=judge0
+      - POSTGRES_PASSWORD=judge0
+      - POSTGRES_DB=judge0
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data/
+    networks:
+      - app-network
+
+  judge0-redis:
+    image: redis:6.0
+    container_name: judge0-redis
+    command: [
+      "bash", "-c",
+      'docker-entrypoint.sh --appendonly yes --requirepass "judge0pass"'
+    ]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
